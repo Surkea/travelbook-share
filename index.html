@@ -137,7 +137,8 @@ body {
 
   const CATEGORY_EMOJI = {
     transport: '🚗', flight: '✈', train: '🚄', food: '🍜',
-    sight: '🏛', hotel: '🏨', shopping: '🛍', activity: '🎯', other: '📍'
+    sight: '🏛', sightseeing: '🏛', hotel: '🏨', shopping: '🛍',
+    activity: '🎯', sports: '🎢', other: '📍'
   };
 
   function escapeHtml(s) {
@@ -184,7 +185,7 @@ body {
             var a = day.activities[j];
             html += '<div class="activity-item">';
             html += '<span class="activity-emoji">' + (CATEGORY_EMOJI[a.category] || '📍') + '</span>';
-            html += '<span class="activity-time">' + a.startTime + ' - ' + a.endTime + '</span>';
+            html += '<span class="activity-time">' + (a.start_time || '') + ' - ' + (a.end_time || '') + '</span>';
             html += '<span class="activity-name">' + escapeHtml(a.name) + '</span>';
             html += '</div>';
           }
