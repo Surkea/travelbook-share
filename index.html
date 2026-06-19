@@ -177,7 +177,7 @@ body {
       for (var i = 0; i < days.length; i++) {
         var day = days[i];
         html += '<div class="day-card">';
-        html += '<div class="day-header">Day ' + day.dayIndex + ' · ' + day.date + '</div>';
+        html += '<div class="day-header">Day ' + day.day_index + ' · ' + day.date + '</div>';
         if (!day.activities || day.activities.length === 0) {
           html += '<div class="activity-item"><span class="activity-name">暂无安排</span></div>';
         } else {
