@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>行程分享 — TravelBook</title>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+  background: #f5f5f5;
+  color: #1a1a1a;
+  line-height: 1.6;
+  min-height: 100vh;
+}
+.container { max-width: 480px; margin: 0 auto; padding: 16px; }
+
+/* 头部卡片 */
+.header-card {
+  background: linear-gradient(135deg, #4A90D9 0%, #357ABD 50%, #2C6AA0 100%);
+  border-radius: 16px;
+  padding: 28px 24px;
+  color: white;
+  text-align: center;
+  margin-bottom: 16px;
+  box-shadow: 0 4px 16px rgba(74,144,217,0.3);
+}
+.header-card h1 {
+  font-size: 22px;
+  font-weight: 700;
+  margin-bottom: 12px;
+  letter-spacing: 0.5px;
+}
+.header-row {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  opacity: 0.9;
+  margin-bottom: 4px;
+}
+.header-row.dates { margin-top: 8px; }
+
+/* 日程 */
+.section-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: #666;
+  padding: 8px 4px 12px;
+  letter-spacing: 0.5px;
+}
+.day-card {
+  background: white;
+  border-radius: 12px;
+  padding: 16px;
+  margin-bottom: 10px;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+}
+.day-header {
+  font-size: 14px;
+  font-weight: 700;
+  color: #4A90D9;
+  margin-bottom: 10px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid #f0f0f0;
+}
+.activity-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 0;
+  font-size: 14px;
+}
+.activity-emoji { font-size: 16px; flex-shrink: 0; }
+.activity-time {
+  font-size: 12px;
+  color: #999;
+  flex-shrink: 0;
+  width: 72px;
+}
+.activity-name { flex: 1; color: #333; }
+
+/* 空状态 */
+.empty-schedule {
+  text-align: center;
+  padding: 32px 16px;
+  color: #999;
+  font-size: 14px;
+}
+
+/* 底部 */
+.footer {
+  text-align: center;
+  padding: 24px 0 12px;
+  font-size: 12px;
+  color: #bbb;
+}
+
+/* 加载 & 错误 */
+.loading, .error-state {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  min-height: 60vh;
+  text-align: center;
+  color: #999;
+  font-size: 14px;
+}
+.spinner {
+  width: 32px; height: 32px;
+  border: 3px solid #e0e0e0;
+  border-top-color: #4A90D9;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+  margin-bottom: 16px;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+</style>
+</head>
+<body>
+<div class="container" id="app">
+  <div class="loading">
+    <div class="spinner"></div>
+    加载中…
+  </div>
+</div>
+
+<!-- Supabase JS SDK -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+
+<script>
+(function() {
+  const SUPABASE_URL = 'https://govifgpcqujbzgoaumiz.supabase.co';
+  const SUPABASE_ANON_KEY = 'sb_publishable_4tBb88qU7uwTcbqGrcwpoQ_3wQ1ruuf';
+
+  const CATEGORY_EMOJI = {
+    transport: '🚗', flight: '✈', train: '🚄', food: '🍜',
+    sight: '🏛', hotel: '🏨', shopping: '🛍', activity: '🎯', other: '📍'
+  };
+
+  function escapeHtml(s) {
+    return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  }
+
+  function fmtDate(d) {
+    return (d || '').split('T')[0];
+  }
+
+  function renderError(msg) {
+    document.getElementById('app').innerHTML =
+      '<div class="error-state">😕<br>' + escapeHtml(msg) + '</div>';
+  }
+
+  function render(trip) {
+    var ds = trip;
+    var hasSchedule = ds.schedule_data && ds.schedule_data.days && ds.schedule_data.days.length > 0;
+    var start = fmtDate(ds.start_date);
+    var end = fmtDate(ds.end_date);
+
+    var html = '';
+    // 头部
+    html += '<div class="header-card">';
+    html += '<h1>' + escapeHtml(ds.name) + '</h1>';
+    if (ds.destination) {
+      html += '<div class="header-row">📍 ' + escapeHtml(ds.destination) + '</div>';
+    }
+    html += '<div class="header-row dates">📅 ' + start + '  ~  ' + end + '</div>';
+    html += '</div>';
+
+    // 日程
+    if (hasSchedule) {
+      html += '<div class="section-title">📋 行程安排</div>';
+      var days = ds.schedule_data.days;
+      for (var i = 0; i < days.length; i++) {
+        var day = days[i];
+        html += '<div class="day-card">';
+        html += '<div class="day-header">Day ' + day.dayIndex + ' · ' + day.date + '</div>';
+        if (!day.activities || day.activities.length === 0) {
+          html += '<div class="activity-item"><span class="activity-name">暂无安排</span></div>';
+        } else {
+          for (var j = 0; j < day.activities.length; j++) {
+            var a = day.activities[j];
+            html += '<div class="activity-item">';
+            html += '<span class="activity-emoji">' + (CATEGORY_EMOJI[a.category] || '📍') + '</span>';
+            html += '<span class="activity-time">' + a.startTime + ' - ' + a.endTime + '</span>';
+            html += '<span class="activity-name">' + escapeHtml(a.name) + '</span>';
+            html += '</div>';
+          }
+        }
+        html += '</div>';
+      }
+    } else {
+      html += '<div class="empty-schedule">行程正在生成中，稍后再来看看 ✈️</div>';
+    }
+
+    // 底部
+    html += '<div class="footer">Powered by TravelBook</div>';
+
+    document.getElementById('app').innerHTML = html;
+    document.title = trip.name + ' — 行程分享';
+  }
+
+  // ---- 主流程 ---------------------------------------------------
+
+  var params = new URLSearchParams(window.location.search);
+  var tripId = params.get('id');
+
+  if (!tripId) {
+    renderError('缺少参数，请提供有效的行程链接');
+    return;
+  }
+
+  var supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+  supabase
+    .from('trips')
+    .select('name, destination, start_date, end_date, schedule_data')
+    .eq('id', tripId)
+    .single()
+    .then(function(res) {
+      if (res.error || !res.data) {
+        console.error('查询行程失败:', res.error);
+        renderError('行程不存在或链接已失效');
+        return;
+      }
+      render(res.data);
+    })
+    .catch(function(err) {
+      console.error('请求失败:', err);
+      renderError('加载失败，请检查网络后重试');
+    });
+})();
+</script>
+</body>
+</html>
